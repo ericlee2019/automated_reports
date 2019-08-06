@@ -8,6 +8,7 @@ created by Symphony team. The original existed in a .ipynb file.
 
 Original code did not contain comments. Please read through carefully.
 
+Part II creates additional requested files added in July 2019.
 
 Author: Eric Lee
 """
@@ -44,6 +45,7 @@ def mod_query(query, var_val, var="@organization_id"):
     sql_query = query.replace(var, str(var_val))
     return mysql.sql_query_to_pd(sql_query)
 
+
 def convert_question_type(type):
     if type == "Question::ScaleQuestion":
         return "Scale"
@@ -53,7 +55,8 @@ def convert_question_type(type):
         return "Text"
     return None
 
-def main(save_file_path="~/airflow/files/Indigo_report.csv"):
+
+def main(save_file_path="~/airflow/files/"):
     # create dataframes from queries
     survey_df = mod_query(Q.survey, org_id)
     response_df = mod_query(Q.response, org_id)
@@ -62,7 +65,9 @@ def main(save_file_path="~/airflow/files/Indigo_report.csv"):
 
     # used to pull filter labels from 'filterships' table. see sql query if confused.
     str_filter_ids = ",".join(str(x) for x in filter_df["filter_id"].values)
-    filter_apply_df = mod_query(Q.filter_apply, var_val=str_filter_ids, var="@filter_ids")
+    filter_apply_df = mod_query(
+        Q.filter_apply, var_val=str_filter_ids, var="@filter_ids"
+    )
 
     # combine into one dataframe
     response_filter_df = filter_apply_df.merge(filter_df, on=["filter_id"], how="left")
@@ -121,13 +126,15 @@ def main(save_file_path="~/airflow/files/Indigo_report.csv"):
     deliver_df["avg_score"] = (
         deliver_df["question_response_integer"] / deliver_df["submitted"]
     )
-    deliver_df["participation_rate"] = deliver_df["submitted"] / deliver_df["response_id"]
+    deliver_df["participation_rate"] = (
+        deliver_df["submitted"] / deliver_df["response_id"]
+    )
 
     deliver_df["avg_score"] = deliver_df[["type", "avg_score"]].apply(
-        lambda x: x["avg_score"] if x["type"] == "Question::ScaleQuestion" else None, axis=1
+        lambda x: x["avg_score"] if x["type"] == "Question::ScaleQuestion" else None,
+        axis=1,
     )
     deliver_df["type"] = deliver_df["type"].apply(convert_question_type)
-
 
     # create average score column by (filter & segment)
     deliver_df2 = deliver_df.copy()
@@ -170,9 +177,69 @@ def main(save_file_path="~/airflow/files/Indigo_report.csv"):
     ]
 
     deliver_df.to_csv(
-        save_file_path, index=None, header=header, columns=columns, encoding="utf-8"
+        save_file_path + "Indigo_report.csv",
+        index=None,
+        header=header,
+        columns=columns,
+        encoding="utf-8",
     )
-    print(time.time() - start)
+
+    # ***************************** PART II (UPDATED) *********************************
+    # # Score Breakdown
+    # Avg Score breakdown: # of each rating/% of each rating
+    cols = [
+        "question_response_integer",
+        "submitted",
+        "survey_id",
+        "segment_id",
+        "type",
+        "survey_day",
+    ]
+    score_df = response_df.merge(
+        survey_df, left_on="survey_id", right_on="survey_id", how="left"
+    )[cols]
+
+    score_df["type"] = score_df["type"].apply(convert_question_type)
+    # split between boolean and scale
+    boolean_df = score_df.loc[score_df["type"] == "Yes/No"].copy()
+    scale_df = score_df.loc[score_df["type"] == "Scale"].copy()
+
+    def create_score_df(df, vals):
+        _dict = {}
+        pct_dict = {}
+        survey_ids = df["survey_id"].unique()
+        for s_id in survey_ids:
+            df_tmp = df.loc[df["survey_id"] == s_id].copy()
+            # count num of each value
+            survey_vals = [df_tmp["survey_day"].values[0]]
+            for val in vals:
+                survey_vals.append(
+                    df_tmp.loc[df_tmp["question_response_integer"] == val].shape[0]
+                )
+            survey_vals.append(df_tmp["question_response_integer"].isnull().sum())
+            _dict[s_id] = survey_vals
+
+            pct_survey_vals = survey_vals.copy()
+            pct_survey_vals[1:] = np.array(pct_survey_vals[1:]) / df_tmp.shape[0]
+            pct_dict[s_id] = pct_survey_vals
+
+        vals.append("nan")
+        vals.insert(0, "date")
+        score_df = pd.DataFrame().from_dict(_dict, orient="index", columns=vals)
+        pct_df = pd.DataFrame().from_dict(pct_dict, orient="index", columns=vals)
+        return score_df, pct_df
+
+    boolean_vals = [0, 1]
+    boolean_score_df, boolean_pct_df = create_score_df(boolean_df, boolean_vals)
+
+    scale_vals = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    scale_score_df, scale_pct_df = create_score_df(scale_df, scale_vals)
+
+    boolean_score_df.to_csv(save_file_path + "boolean_score.csv", index=None)
+    boolean_pct_df.to_csv(save_file_path + "boolean_pct.csv", index=None)
+    scale_score_df.to_csv(save_file_path + "scale_score.csv", index=None)
+    scale_pct_df.to_csv(save_file_path + "scale_pct.csv", index=None)
+
 
 if __name__ == "__main__":
     main()
