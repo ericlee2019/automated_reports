@@ -9,6 +9,7 @@ from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python_operator import PythonOperator
 
 import send_csv
+
 # from IndigoAG import create_report
 
 
@@ -21,12 +22,20 @@ dag = DAG(
 )
 
 create_csv = BashOperator(
-    task_id="create_csv", bash_command="python ~/projects/ReportAutomation/IndigoAG/create_report.py", dag=dag
+    task_id="create_csv",
+    bash_command="python ~/airflow/reports/IndigoAG/create_report.py",
+    dag=dag,
 )
 
 today = date.today()
-file_name = "Indigo_report.csv"
-message = """Here is the updated&nbsp;<strong>Indigo Survey Report<em>&nbsp;
+file_name = [
+    "Indigo_report.csv",
+    "boolean_pct.csv",
+    "boolean_score.csv",
+    "scale_pct.csv",
+    "scale_score.csv",
+]
+message = """Here are the updated&nbsp;<strong>Indigo AG files<em>&nbsp;
                         </em></strong>created on&nbsp;
                     <strong>{}</strong>.</span></span><br />""".format(
     today
@@ -35,17 +44,13 @@ subject = "Indigo Report " + str(today)
 send_csv = PythonOperator(
     task_id="send_csv",
     python_callable=send_csv.main,
-    op_kwargs={"file_name": file_name, "message": message, "subject": subject, "receiver":"ericlee@tinypulse.com"},
+    op_kwargs={
+        "file_name": file_name,
+        "message": message,
+        "subject": subject,
+        "receiver": "jennifer@tinypulse.com",
+    },
     dag=dag,
 )
 
-# def print_hello():
-#     return "Hello world!"
-
-
-# hello_operator = PythonOperator(
-#     task_id="hello_task", python_callable=print_hello, dag=dag 
-# )
-
 create_csv >> send_csv
-# hello_operator >> create_csv >> email_csv
