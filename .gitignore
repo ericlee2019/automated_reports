@@ -18,4 +18,5 @@ logs
 *.gslides
 settings.json
 
+*.pid
 token.pickle
