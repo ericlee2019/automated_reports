@@ -53,7 +53,7 @@ def convert_question_type(type):
         return "Text"
     return None
 
-def main():
+def main(save_file_path="~/airflow/files/Indigo_report.csv"):
     # create dataframes from queries
     survey_df = mod_query(Q.survey, org_id)
     response_df = mod_query(Q.response, org_id)
@@ -169,11 +169,9 @@ def main():
         "Org Avg Participation Rate",
     ]
 
-    file_path = "~/airflow/files/Indigo_report.csv"
     deliver_df.to_csv(
-        file_path, index=None, header=header, columns=columns, encoding="utf-8"
+        save_file_path, index=None, header=header, columns=columns, encoding="utf-8"
     )
-
     print(time.time() - start)
 
 if __name__ == "__main__":
