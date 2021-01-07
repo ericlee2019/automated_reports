@@ -71,7 +71,7 @@ jupyter-latex-envs==1.4.6
 jupyter-nbextensions-configurator==0.4.1
 kiwisolver==1.1.0
 lockfile==0.12.2
-lxml==4.3.4
+lxml==4.6.2
 Mako==1.0.13
 Markdown==2.6.11
 MarkupSafe==1.1.1
