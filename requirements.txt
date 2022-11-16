@@ -1,5 +1,5 @@
 alembic==0.9.10
-apache-airflow==1.10.3
+apache-airflow==2.4.2
 apiclient==1.0.4
 appdirs==1.4.3
 appnope==0.1.0
